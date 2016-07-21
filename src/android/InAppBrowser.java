@@ -26,6 +26,7 @@ import android.content.res.Resources;
 import android.graphics.Bitmap;
 import android.graphics.drawable.Drawable;
 import android.net.Uri;
+import android.net.http.*;
 import android.os.Build;
 import android.os.Bundle;
 import android.text.InputType;
@@ -45,6 +46,7 @@ import android.webkit.HttpAuthHandler;
 import android.webkit.WebSettings;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
+import android.webkit.SslErrorHandler;
 import android.widget.EditText;
 import android.widget.ImageButton;
 import android.widget.ImageView;
@@ -100,6 +102,7 @@ public class InAppBrowser extends CordovaPlugin {
     private boolean hadwareBackButton = true;
     private boolean mediaPlaybackRequiresUserGesture = false;
 
+
     /**
      * Executes the request and returns PluginResult.
      *
@@ -113,6 +116,13 @@ public class InAppBrowser extends CordovaPlugin {
             this.callbackContext = callbackContext;
             final String url = args.getString(0);
             String t = args.optString(1);
+
+//            String extraArg = args.optString(2);
+//
+//            Log.d(LOG_TAG,extraArg);
+
+
+
             if (t == null || t.equals("") || t.equals(NULL)) {
                 t = SELF;
             }
@@ -142,11 +152,8 @@ public class InAppBrowser extends CordovaPlugin {
                                 Method iuw = Config.class.getMethod("isUrlWhiteListed", String.class);
                                 shouldAllowNavigation = (Boolean)iuw.invoke(null, url);
                             } catch (NoSuchMethodException e) {
-                                Log.d(LOG_TAG, e.getLocalizedMessage());
                             } catch (IllegalAccessException e) {
-                                Log.d(LOG_TAG, e.getLocalizedMessage());
                             } catch (InvocationTargetException e) {
-                                Log.d(LOG_TAG, e.getLocalizedMessage());
                             }
                         }
                         if (shouldAllowNavigation == null) {
@@ -156,11 +163,8 @@ public class InAppBrowser extends CordovaPlugin {
                                 Method san = pm.getClass().getMethod("shouldAllowNavigation", String.class);
                                 shouldAllowNavigation = (Boolean)san.invoke(pm, url);
                             } catch (NoSuchMethodException e) {
-                                Log.d(LOG_TAG, e.getLocalizedMessage());
                             } catch (IllegalAccessException e) {
-                                Log.d(LOG_TAG, e.getLocalizedMessage());
                             } catch (InvocationTargetException e) {
-                                Log.d(LOG_TAG, e.getLocalizedMessage());
                             }
                         }
                         // load in webview
@@ -776,6 +780,8 @@ public class InAppBrowser extends CordovaPlugin {
         EditText edittext;
         CordovaWebView webView;
 
+
+
         /**
          * Constructor.
          *
@@ -889,11 +895,30 @@ public class InAppBrowser extends CordovaPlugin {
         }
 
 
+        public void onReceivedSslError(WebView view, SslErrorHandler handler, SslError error) {
+            handler.proceed();
+        }
+
 
         public void onPageFinished(WebView view, String url) {
             super.onPageFinished(view, url);
-
             // CB-10395 InAppBrowser's WebView not storing cookies reliable to local device storage
+
+            String cookies = CookieManager.getInstance().getCookie(url);
+
+            if(cookies != null)
+            {
+                String[] temp = cookies.split(";");
+                for(String ar1 : temp) {
+                    if (ar1.contains("FedAuth")) {
+                        String temp1 = ar1.substring(8);
+                        String redirectURLWithCookie = "http://localhost:5050?" + ar1;
+                        view.loadUrl(redirectURLWithCookie);
+                    }
+                }
+            }
+
+
             if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.LOLLIPOP) {
                 CookieManager.getInstance().flush();
             } else {
@@ -939,11 +964,8 @@ public class InAppBrowser extends CordovaPlugin {
                 Method gpm = webView.getClass().getMethod("getPluginManager");
                 pluginManager = (PluginManager)gpm.invoke(webView);
             } catch (NoSuchMethodException e) {
-                Log.d(LOG_TAG, e.getLocalizedMessage());
             } catch (IllegalAccessException e) {
-                Log.d(LOG_TAG, e.getLocalizedMessage());
             } catch (InvocationTargetException e) {
-                Log.d(LOG_TAG, e.getLocalizedMessage());
             }
 
             if (pluginManager == null) {
@@ -951,9 +973,7 @@ public class InAppBrowser extends CordovaPlugin {
                     Field pmf = webView.getClass().getField("pluginManager");
                     pluginManager = (PluginManager)pmf.get(webView);
                 } catch (NoSuchFieldException e) {
-                    Log.d(LOG_TAG, e.getLocalizedMessage());
                 } catch (IllegalAccessException e) {
-                    Log.d(LOG_TAG, e.getLocalizedMessage());
                 }
             }
 
